@@ -1,0 +1,62 @@
+"use client"
+
+import { Card, CardContent } from "@/components/ui/card"
+import { TrendingUp, TrendingDown, Wallet } from "lucide-react"
+
+interface ResumoMobileProps {
+  totalReceitas: number
+  totalDespesas: number
+}
+
+export function ResumoMobile({ totalReceitas, totalDespesas }: ResumoMobileProps) {
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL"
+    }).format(value)
+  }
+
+  const saldo = totalReceitas - totalDespesas
+
+  return (
+    <div className="grid grid-cols-3 gap-3 md:hidden">
+      <Card className="border-success/30 bg-success/5 shadow-lg shadow-success/5">
+        <CardContent className="p-4">
+          <div className="flex flex-col items-center text-center">
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-success/10 mb-2">
+              <TrendingUp className="h-5 w-5 text-success" />
+            </div>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Receitas</p>
+            <p className="text-sm font-mono font-bold text-success mt-1">{formatCurrency(totalReceitas)}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/30 bg-destructive/5 shadow-lg shadow-destructive/5">
+        <CardContent className="p-4">
+          <div className="flex flex-col items-center text-center">
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-destructive/10 mb-2">
+              <TrendingDown className="h-5 w-5 text-destructive" />
+            </div>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Despesas</p>
+            <p className="text-sm font-mono font-bold text-destructive mt-1">{formatCurrency(totalDespesas)}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className={`shadow-lg ${saldo >= 0 ? "border-primary/30 bg-primary/5 shadow-primary/5" : "border-destructive/30 bg-destructive/5 shadow-destructive/5"}`}>
+        <CardContent className="p-4">
+          <div className="flex flex-col items-center text-center">
+            <div className={`flex items-center justify-center w-9 h-9 rounded-xl mb-2 ${saldo >= 0 ? "bg-primary/10" : "bg-destructive/10"}`}>
+              <Wallet className={`h-5 w-5 ${saldo >= 0 ? "text-primary" : "text-destructive"}`} />
+            </div>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Saldo</p>
+            <p className={`text-sm font-mono font-bold mt-1 ${saldo >= 0 ? "text-primary" : "text-destructive"}`}>
+              {formatCurrency(saldo)}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
