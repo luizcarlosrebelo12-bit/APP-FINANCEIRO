@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Valor } from "@/components/ui/valor"
+import { usePrivacy } from "@/lib/privacy-context"
 import { 
   Plus, 
   Trash2, 
@@ -44,8 +45,8 @@ export function Salarios({ initialData }: SalariosProps) {
   const [pessoas, setPessoas] = useState<Pessoa[]>(initialData)
   const [isOpen, setIsOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const { hideValues } = usePrivacy()
 
-  // rascunho de digitação por entrada, separado do valor salvo
   const [valorInputs, setValorInputs] = useState<Record<string, string>>({})
 
   const getValorDisplay = (entrada: EntradaSalario) => {
@@ -193,10 +194,11 @@ export function Salarios({ initialData }: SalariosProps) {
                       <Input
                         type="text"
                         inputMode="decimal"
-                        value={getValorDisplay(entrada)}
-                        onChange={(e) => handleValorChange(entrada.id, e.target.value)}
-                        onBlur={(e) => handleValorBlur(pessoa.id, entrada.id, e.target.value)}
+                        value={hideValues ? "••••••" : getValorDisplay(entrada)}
+                        onChange={(e) => !hideValues && handleValorChange(entrada.id, e.target.value)}
+                        onBlur={(e) => !hideValues && handleValorBlur(pessoa.id, entrada.id, e.target.value)}
                         placeholder="0,00"
+                        readOnly={hideValues}
                         className="bg-transparent border-0 px-0 h-8 focus-visible:ring-0 focus-visible:ring-offset-0 font-mono font-medium"
                       />
                       <span className="text-sm text-muted-foreground shrink-0">dia</span>

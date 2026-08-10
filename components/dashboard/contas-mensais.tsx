@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Valor } from "@/components/ui/valor"
+import { usePrivacy } from "@/lib/privacy-context"
 import {
   Table,
   TableBody,
@@ -49,9 +50,8 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const { hideValues } = usePrivacy()
 
-  // texto livre que o usuário está digitando em cada campo de valor,
-  // separado do número que de fato é salvo no banco
   const [valorInputs, setValorInputs] = useState<Record<string, string>>({})
 
   const getValorDisplay = (conta: Conta) => {
@@ -186,10 +186,11 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                       <Input
                         type="text"
                         inputMode="decimal"
-                        value={getValorDisplay(conta)}
-                        onChange={(e) => handleValorChange(conta.id, e.target.value)}
-                        onBlur={(e) => handleValorBlur(conta.id, e.target.value)}
+                        value={hideValues ? "••••••" : getValorDisplay(conta)}
+                        onChange={(e) => !hideValues && handleValorChange(conta.id, e.target.value)}
+                        onBlur={(e) => !hideValues && handleValorBlur(conta.id, e.target.value)}
                         placeholder="0,00"
+                        readOnly={hideValues}
                         className="bg-transparent border-0 px-0 h-9 focus-visible:ring-0 focus-visible:ring-offset-0 font-mono font-medium"
                       />
                     </TableCell>
