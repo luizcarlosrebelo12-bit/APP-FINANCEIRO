@@ -2,10 +2,12 @@
 
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
-import { Moon, Sun, RefreshCw } from "lucide-react"
+import { Moon, Sun, RefreshCw, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import Image from "next/image"
+import { Valor } from "@/components/ui/valor"
+import { usePrivacy } from "@/lib/privacy-context"
 
 interface HeaderProps {
   totalReceitas: number
@@ -14,15 +16,9 @@ interface HeaderProps {
 
 export function Header({ totalReceitas, totalDespesas }: HeaderProps) {
   const { theme, setTheme } = useTheme()
+  const { hideValues, togglePrivacy } = usePrivacy()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL"
-    }).format(value)
-  }
 
   const saldo = totalReceitas - totalDespesas
 
@@ -59,19 +55,20 @@ export function Header({ totalReceitas, totalDespesas }: HeaderProps) {
           <div className="hidden md:flex items-center gap-6 text-sm">
             <div className="text-right">
               <p className="text-xs text-muted-foreground font-medium">Receitas</p>
-              <p className="font-mono font-bold text-success">{formatCurrency(totalReceitas)}</p>
+              <Valor amount={totalReceitas} className="font-mono font-bold text-success block" />
             </div>
             <div className="h-10 w-px bg-border/50" />
             <div className="text-right">
               <p className="text-xs text-muted-foreground font-medium">Despesas</p>
-              <p className="font-mono font-bold text-destructive">{formatCurrency(totalDespesas)}</p>
+              <Valor amount={totalDespesas} className="font-mono font-bold text-destructive block" />
             </div>
             <div className="h-10 w-px bg-border/50" />
             <div className="text-right">
               <p className="text-xs text-muted-foreground font-medium">Saldo</p>
-              <p className={`font-mono font-bold text-lg ${saldo >= 0 ? "text-primary" : "text-destructive"}`}>
-                {formatCurrency(saldo)}
-              </p>
+              <Valor
+                amount={saldo}
+                className={`font-mono font-bold text-lg block ${saldo >= 0 ? "text-primary" : "text-destructive"}`}
+              />
             </div>
           </div>
 
@@ -84,6 +81,20 @@ export function Header({ totalReceitas, totalDespesas }: HeaderProps) {
           >
             <RefreshCw className={`h-4 w-4 ${isPending ? "animate-spin" : ""}`} />
             <span className="sr-only">Atualizar dados</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={togglePrivacy}
+            className="h-10 w-10"
+          >
+            {hideValues ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+            <span className="sr-only">Ocultar valores</span>
           </Button>
           
           <Button

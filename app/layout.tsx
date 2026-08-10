@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
+import { PrivacyProvider } from '@/lib/privacy-context'
 import './globals.css'
 
 const inter = Inter({ 
@@ -35,6 +36,8 @@ export default function RootLayout({
       <head>
         {/* Garantimos que o Safari encontre o ícone */}
         <link rel="apple-touch-icon" href="/apple-icon.png" />
+        {/* Manifest do PWA - usado quando o app é instalado */}
+        <link rel="manifest" href="/manifest.json" />
       </head>
       <body className={`${inter.variable} font-sans antialiased bg-background`}>
         <ThemeProvider
@@ -43,7 +46,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <PrivacyProvider>
+            {children}
+          </PrivacyProvider>
         </ThemeProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

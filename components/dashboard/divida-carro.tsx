@@ -7,16 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Landmark, CheckCircle2, Clock } from "lucide-react";
+import { Valor } from "@/components/ui/valor";
 
 // ATENÇÃO: Adicione a action 'createParcelaCarro' no seu arquivo de actions!
 import { updateParcelaCarro, deleteParcelaCarro, deleteDivida, createDivida, createParcelaCarro } from "@/app/actions";
 
 interface Parcela { id: string; divida_id: string; numero: number; valor: number; data_pagamento: string | null; status: "pendente" | "ok"; }
 interface Divida { id: string; nome: string; parcelas_carro: Parcela[]; }
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-}
 
 function DividaCard({ divida, setDividas }: any) {
   const [isOpen, setIsOpen] = useState(false);
@@ -48,7 +45,7 @@ function DividaCard({ divida, setDividas }: any) {
     }
   };
 
-  // 3. NOVA FUNÇÃO: Excluir uma Parcela individual
+  // 3. Excluir uma Parcela individual
   const handleDeleteParcela = (parcelaId: string, numeroParcela: number) => {
     if (window.confirm(`Excluir a parcela #${numeroParcela}?`)) {
       setDividas((prev: any) => prev.map((d: any) => d.id === divida.id ? {
@@ -60,12 +57,11 @@ function DividaCard({ divida, setDividas }: any) {
     }
   };
 
-  // 4. NOVA FUNÇÃO: Adicionar uma nova Parcela à esta dívida
+  // 4. Adicionar uma nova Parcela à esta dívida
   const handleAddParcela = () => {
     const inputValor = window.prompt("Qual o VALOR desta nova parcela? (Exemplo: 350,90)");
     if (!inputValor || inputValor.trim() === "") return;
 
-    // Converte a string digitada em número decimal (aceitando vírgula ou ponto)
     const valorNumerico = parseFloat(inputValor.replace(",", "."));
     
     if (isNaN(valorNumerico)) {
@@ -73,7 +69,6 @@ function DividaCard({ divida, setDividas }: any) {
       return;
     }
 
-    // Calcula automaticamente o próximo número da sequência (1, 2, 3 -> vira 4)
     const proximoNumero = parcelas.length > 0 
       ? Math.max(...parcelas.map(p => p.numero)) + 1 
       : 1;
@@ -86,16 +81,14 @@ function DividaCard({ divida, setDividas }: any) {
       numero: proximoNumero,
       valor: valorNumerico,
       data_pagamento: null,
-      status: "pendente" // Nasce pendente por padrão
+      status: "pendente"
     };
 
-    // Joga na tela instantaneamente
     setDividas((prev: any) => prev.map((d: any) => d.id === divida.id ? {
       ...d,
       parcelas_carro: [...d.parcelas_carro, novaParcelaObj]
     } : d));
 
-    // Dispara pro banco de dados
     startTransition(async () => {
       await createParcelaCarro({
         divida_id: divida.id,
@@ -118,7 +111,7 @@ function DividaCard({ divida, setDividas }: any) {
               <h2 className="text-xl font-semibold">
                 {divida.nome} <span className="text-sm font-normal text-muted-foreground">({parcelasPagas}/{parcelas.length})</span>
               </h2>
-              <p className="text-sm text-green-600 font-medium">Pago: {formatCurrency(totalPago)}</p>
+              <p className="text-sm text-green-600 font-medium">Pago: <Valor amount={totalPago} /></p>
             </div>
           </div>
           
@@ -128,9 +121,9 @@ function DividaCard({ divida, setDividas }: any) {
         </div>
         
         <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
-          <div className="p-2 bg-secondary rounded-md">Total: {formatCurrency(totalDivida)}</div>
-          <div className="p-2 bg-green-900/10 text-green-600 rounded-md">Pago: {formatCurrency(totalPago)}</div>
-          <div className="p-2 bg-destructive/10 text-destructive rounded-md">Falta: {formatCurrency(faltaPagar)}</div>
+          <div className="p-2 bg-secondary rounded-md">Total: <Valor amount={totalDivida} /></div>
+          <div className="p-2 bg-green-900/10 text-green-600 rounded-md">Pago: <Valor amount={totalPago} /></div>
+          <div className="p-2 bg-destructive/10 text-destructive rounded-md">Falta: <Valor amount={faltaPagar} /></div>
         </div>
       </div>
 
@@ -144,14 +137,14 @@ function DividaCard({ divida, setDividas }: any) {
                   <TableHead>Valor</TableHead>
                   <TableHead>Data Pagto</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-10"></TableHead> {/* Coluna da lixeira da parcela */}
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {parcelas.map((p: Parcela) => (
                   <TableRow key={p.id} className={p.status === "ok" ? "bg-green-900/10 text-green-600" : ""}>
                     <TableCell className="font-bold">{p.numero}</TableCell>
-                    <TableCell>{formatCurrency(p.valor)}</TableCell>
+                    <TableCell><Valor amount={p.valor} /></TableCell>
                     <TableCell>
                       <Input type="date" className="w-36 h-8" value={p.data_pagamento || ""} onChange={(e) => handleUpdateParcela(p.id, "data_pagamento", e.target.value)} />
                     </TableCell>
@@ -165,7 +158,6 @@ function DividaCard({ divida, setDividas }: any) {
                       </Select>
                     </TableCell>
                     
-                    {/* BOTÃO EXCLUIR PARCELA */}
                     <TableCell>
                       <Button 
                         variant="ghost" 
@@ -182,7 +174,6 @@ function DividaCard({ divida, setDividas }: any) {
               </TableBody>
             </Table>
 
-            {/* BOTÃO ADICIONAR PARCELA (RODAPÉ DA TABELA) */}
             <div className="p-2 border-t bg-secondary/10">
               <Button 
                 variant="outline" 

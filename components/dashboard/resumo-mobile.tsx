@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { TrendingUp, TrendingDown, Wallet } from "lucide-react"
+import { Valor } from "@/components/ui/valor"
 
 interface ResumoMobileProps {
   totalReceitas: number
@@ -9,13 +10,6 @@ interface ResumoMobileProps {
 }
 
 export function ResumoMobile({ totalReceitas, totalDespesas }: ResumoMobileProps) {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL"
-    }).format(value)
-  }
-
   const saldo = totalReceitas - totalDespesas
 
   return (
@@ -27,7 +21,7 @@ export function ResumoMobile({ totalReceitas, totalDespesas }: ResumoMobileProps
               <TrendingUp className="h-5 w-5 text-success" />
             </div>
             <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Receitas</p>
-            <p className="text-sm font-mono font-bold text-success mt-1">{formatCurrency(totalReceitas)}</p>
+            <Valor amount={totalReceitas} className="text-sm font-mono font-bold text-success mt-1 block" />
           </div>
         </CardContent>
       </Card>
@@ -39,7 +33,7 @@ export function ResumoMobile({ totalReceitas, totalDespesas }: ResumoMobileProps
               <TrendingDown className="h-5 w-5 text-destructive" />
             </div>
             <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Despesas</p>
-            <p className="text-sm font-mono font-bold text-destructive mt-1">{formatCurrency(totalDespesas)}</p>
+            <Valor amount={totalDespesas} className="text-sm font-mono font-bold text-destructive mt-1 block" />
           </div>
         </CardContent>
       </Card>
@@ -51,9 +45,10 @@ export function ResumoMobile({ totalReceitas, totalDespesas }: ResumoMobileProps
               <Wallet className={`h-5 w-5 ${saldo >= 0 ? "text-primary" : "text-destructive"}`} />
             </div>
             <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Saldo</p>
-            <p className={`text-sm font-mono font-bold mt-1 ${saldo >= 0 ? "text-primary" : "text-destructive"}`}>
-              {formatCurrency(saldo)}
-            </p>
+            <Valor
+              amount={saldo}
+              className={`text-sm font-mono font-bold mt-1 block ${saldo >= 0 ? "text-primary" : "text-destructive"}`}
+            />
           </div>
         </CardContent>
       </Card>

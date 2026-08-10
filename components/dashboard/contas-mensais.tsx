@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Valor } from "@/components/ui/valor"
 import {
   Table,
   TableBody,
@@ -49,11 +50,27 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value)
+  // texto livre que o usuário está digitando em cada campo de valor,
+  // separado do número que de fato é salvo no banco
+  const [valorInputs, setValorInputs] = useState<Record<string, string>>({})
+
+  const getValorDisplay = (conta: Conta) => {
+    if (valorInputs[conta.id] !== undefined) return valorInputs[conta.id]
+    return Number(conta.valor) ? String(conta.valor).replace(".", ",") : ""
+  }
+
+  const handleValorChange = (id: string, raw: string) => {
+    setValorInputs((prev) => ({ ...prev, [id]: raw }))
+  }
+
+  const handleValorBlur = (id: string, raw: string) => {
+    const numValue = parseFloat(raw.replace(",", ".")) || 0
+    handleUpdateConta(id, "valor", numValue)
+    setValorInputs((prev) => {
+      const updated = { ...prev }
+      delete updated[id]
+      return updated
+    })
   }
 
   const handleCopyPix = async (pix: string, id: string) => {
@@ -109,7 +126,7 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
           <div className="text-left">
             <h2 className="text-xl font-semibold tracking-tight">Contas Mensais</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {contas.length} contas | Falta: <span className="text-destructive font-medium">{formatCurrency(totalFalta)}</span>
+              {contas.length} contas | Falta: <Valor amount={totalFalta} className="text-destructive font-medium" />
             </p>
           </div>
         </div>
@@ -169,12 +186,9 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                       <Input
                         type="text"
                         inputMode="decimal"
-                        value={conta.valor === 0 ? "" : String(conta.valor).replace(".", ",")}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(",", ".")
-                          const numValue = parseFloat(rawValue) || 0
-                          handleUpdateConta(conta.id, "valor", numValue)
-                        }}
+                        value={getValorDisplay(conta)}
+                        onChange={(e) => handleValorChange(conta.id, e.target.value)}
+                        onBlur={(e) => handleValorBlur(conta.id, e.target.value)}
                         placeholder="0,00"
                         className="bg-transparent border-0 px-0 h-9 focus-visible:ring-0 focus-visible:ring-offset-0 font-mono font-medium"
                       />
@@ -242,15 +256,15 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
             <div className="p-5 rounded-2xl bg-secondary/50 border border-border/50">
               <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Total Geral</p>
-              <p className="text-2xl font-bold font-mono mt-2">{formatCurrency(totalGeral)}</p>
+              <Valor amount={totalGeral} className="block text-2xl font-bold font-mono mt-2" />
             </div>
             <div className="p-5 rounded-2xl bg-success/10 border border-success/20">
               <p className="text-xs text-success/80 uppercase tracking-widest font-medium">Ja Foi Pago</p>
-              <p className="text-2xl font-bold font-mono mt-2 text-success">{formatCurrency(totalPago)}</p>
+              <Valor amount={totalPago} className="block text-2xl font-bold font-mono mt-2 text-success" />
             </div>
             <div className="p-5 rounded-2xl bg-destructive/10 border border-destructive/20">
               <p className="text-xs text-destructive/80 uppercase tracking-widest font-medium">Falta Pagar</p>
-              <p className="text-2xl font-bold font-mono mt-2 text-destructive">{formatCurrency(totalFalta)}</p>
+              <Valor amount={totalFalta} className="block text-2xl font-bold font-mono mt-2 text-destructive" />
             </div>
           </div>
         </CardContent>

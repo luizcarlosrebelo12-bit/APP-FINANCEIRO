@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Valor } from "@/components/ui/valor"
 import { 
   Plus, 
   Trash2, 
@@ -44,11 +45,26 @@ export function Salarios({ initialData }: SalariosProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value)
+  // rascunho de digitação por entrada, separado do valor salvo
+  const [valorInputs, setValorInputs] = useState<Record<string, string>>({})
+
+  const getValorDisplay = (entrada: EntradaSalario) => {
+    if (valorInputs[entrada.id] !== undefined) return valorInputs[entrada.id]
+    return Number(entrada.valor) ? String(entrada.valor).replace(".", ",") : ""
+  }
+
+  const handleValorChange = (id: string, raw: string) => {
+    setValorInputs((prev) => ({ ...prev, [id]: raw }))
+  }
+
+  const handleValorBlur = (pessoaId: string, entradaId: string, raw: string) => {
+    const numValue = parseFloat(raw.replace(",", ".")) || 0
+    handleUpdateEntrada(pessoaId, entradaId, "valor", numValue)
+    setValorInputs((prev) => {
+      const updated = { ...prev }
+      delete updated[entradaId]
+      return updated
+    })
   }
 
   const handleAddPessoa = () => {
@@ -130,7 +146,7 @@ export function Salarios({ initialData }: SalariosProps) {
           <div className="text-left">
             <h2 className="text-xl font-semibold tracking-tight">Salarios</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Total: <span className="text-success font-medium">{formatCurrency(totalMensal)}</span>
+              Total: <Valor amount={totalMensal} className="text-success font-medium" />
             </p>
           </div>
         </div>
@@ -177,12 +193,9 @@ export function Salarios({ initialData }: SalariosProps) {
                       <Input
                         type="text"
                         inputMode="decimal"
-                        value={entrada.valor === 0 ? "" : String(entrada.valor).replace(".", ",")}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(",", ".")
-                          const numValue = parseFloat(rawValue) || 0
-                          handleUpdateEntrada(pessoa.id, entrada.id, "valor", numValue)
-                        }}
+                        value={getValorDisplay(entrada)}
+                        onChange={(e) => handleValorChange(entrada.id, e.target.value)}
+                        onBlur={(e) => handleValorBlur(pessoa.id, entrada.id, e.target.value)}
                         placeholder="0,00"
                         className="bg-transparent border-0 px-0 h-8 focus-visible:ring-0 focus-visible:ring-offset-0 font-mono font-medium"
                       />
@@ -220,9 +233,10 @@ export function Salarios({ initialData }: SalariosProps) {
                 <div className="mt-4 pt-4 border-t border-border/50">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-muted-foreground">Subtotal</span>
-                    <span className="text-xl font-bold font-mono text-success">
-                      {formatCurrency(calcularTotalPessoa(pessoa.entradas_salario))}
-                    </span>
+                    <Valor
+                      amount={calcularTotalPessoa(pessoa.entradas_salario)}
+                      className="text-xl font-bold font-mono text-success"
+                    />
                   </div>
                 </div>
               </div>
@@ -247,9 +261,7 @@ export function Salarios({ initialData }: SalariosProps) {
                 </div>
                 <span className="font-semibold">Total Mensal</span>
               </div>
-              <span className="text-3xl font-bold font-mono text-success">
-                {formatCurrency(totalMensal)}
-              </span>
+              <Valor amount={totalMensal} className="text-3xl font-bold font-mono text-success" />
             </div>
           </div>
         </CardContent>
