@@ -260,3 +260,82 @@ export async function deleteParcelaCarro(id: string) {
   if (error) throw error
   revalidatePath("/")
 }
+
+// ==================== HISTÓRICO MENSAL ====================
+
+export async function getHistoricoMensal() {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("historico_mensal")
+    .select("*")
+    .order("ano", { ascending: false })
+    .order("mes", { ascending: false })
+
+  if (error) throw error
+  return data
+}
+
+export async function fecharMesAtual() {
+  const supabase = await createClient()
+
+  const [{ data: contas, error: errContas }, { data: pessoas, error: errPessoas }, { data: dividas, error: errDividas }] =
+    await Promise.all([
+      supabase.from("contas_mensais").select("*"),
+      supabase.from("pessoas").select("*, entradas_salario (*)"),
+      supabase.from("dividas").select("*, parcelas_carro (*)"),
+    ])
+
+  if (errContas) throw errContas
+  if (errPessoas) throw errPessoas
+  if (errDividas) throw errDividas
+
+  const hoje = new Date()
+  const mes = hoje.getMonth() + 1
+  const ano = hoje.getFullYear()
+
+  const totalSalarios = (pessoas || []).reduce(
+    (acc, p) => acc + (p.entradas_salario || []).reduce((a: number, e: any) => a + Number(e.valor), 0),
+    0
+  )
+
+  const totalContasGeral = (contas || []).reduce((acc, c) => acc + Number(c.valor), 0)
+  const totalContasPago = (contas || [])
+    .filter((c) => c.pago)
+    .reduce((acc, c) => acc + Number(c.valor), 0)
+
+  const todasParcelas = (dividas || []).flatMap((d) => d.parcelas_carro || [])
+  const totalParcelasPago = todasParcelas
+    .filter((p: any) => {
+      if (p.status !== "ok" || !p.data_pagamento) return false
+      const data = new Date(p.data_pagamento)
+      return data.getMonth() + 1 === mes && data.getFullYear() === ano
+    })
+    .reduce((acc: number, p: any) => acc + Number(p.valor), 0)
+
+  const totalPago = totalContasPago + totalParcelasPago
+  const saldo = totalSalarios - totalPago
+
+  const { data, error } = await supabase
+    .from("historico_mensal")
+    .insert({
+      mes,
+      ano,
+      total_salarios: totalSalarios,
+      total_contas: totalContasGeral,
+      total_contas_pago: totalContasPago,
+      total_parcelas_pago: totalParcelasPago,
+      total_pago: totalPago,
+      saldo,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  // Reseta as contas mensais para o próximo mês (reaproveitando a action que já existia)
+  await updateAllContasPago(false)
+
+  revalidatePath("/")
+  revalidatePath("/historico")
+  return data
+}
