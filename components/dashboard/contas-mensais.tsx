@@ -8,28 +8,21 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Valor } from "@/components/ui/valor"
 import { usePrivacy } from "@/lib/privacy-context"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { 
-  Copy, 
-  Check, 
-  Plus, 
-  Trash2, 
-  ChevronDown, 
-  ChevronRight, 
+  Copy,
+  Check,
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
   Receipt,
-  Loader2
+  Loader2,
+  CalendarDays,
 } from "lucide-react"
-import { 
-  createContaMensal, 
-  updateContaMensal, 
+import {
+  createContaMensal,
+  updateContaMensal,
   deleteContaMensal,
-  updateAllContasPago
+  updateAllContasPago,
 } from "@/app/actions"
 
 interface Conta {
@@ -43,6 +36,14 @@ interface Conta {
 
 interface ContasMensaisProps {
   initialData: Conta[]
+}
+
+type StatusKey = "pago" | "atrasado" | "pendente"
+
+const STATUS_CONFIG: Record<StatusKey, { label: string; className: string }> = {
+  pago: { label: "Pago", className: "bg-success/15 text-success" },
+  atrasado: { label: "Atrasado", className: "bg-destructive/15 text-destructive" },
+  pendente: { label: "Pendente", className: "bg-warning/15 text-warning" },
 }
 
 export function ContasMensais({ initialData }: ContasMensaisProps) {
@@ -87,50 +88,56 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
   }
 
   const handleUpdateConta = (id: string, field: keyof Conta, value: string | number | boolean) => {
-    setContas(contas.map(c => c.id === id ? { ...c, [field]: value } : c))
+    setContas(contas.map((c) => (c.id === id ? { ...c, [field]: value } : c)))
     startTransition(async () => {
       await updateContaMensal(id, { [field]: value })
     })
   }
 
   const handleDeleteConta = (id: string) => {
-    setContas(contas.filter(c => c.id !== id))
+    setContas(contas.filter((c) => c.id !== id))
     startTransition(async () => {
       await deleteContaMensal(id)
     })
   }
 
-  const allChecked = contas.length > 0 && contas.every(c => c.pago)
+  const allChecked = contas.length > 0 && contas.every((c) => c.pago)
 
   const handleToggleAll = (checked: boolean) => {
-    setContas(contas.map(c => ({ ...c, pago: checked })))
+    setContas(contas.map((c) => ({ ...c, pago: checked })))
     startTransition(async () => {
       await updateAllContasPago(checked)
     })
   }
 
+  const getStatus = (conta: Conta): StatusKey => {
+    if (conta.pago) return "pago"
+    const hoje = new Date().getDate()
+    return conta.dia_pagamento < hoje ? "atrasado" : "pendente"
+  }
+
   const totalGeral = contas.reduce((acc, c) => acc + Number(c.valor), 0)
-  const totalPago = contas.filter(c => c.pago).reduce((acc, c) => acc + Number(c.valor), 0)
+  const totalPago = contas.filter((c) => c.pago).reduce((acc, c) => acc + Number(c.valor), 0)
   const totalFalta = totalGeral - totalPago
 
   return (
     <Card className="overflow-hidden border-border/40 shadow-lg shadow-black/5">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full p-5 hover:bg-secondary/30 transition-all duration-200 cursor-pointer select-none"
+        className="flex items-center justify-between w-full p-4 sm:p-5 hover:bg-secondary/30 transition-all duration-200 cursor-pointer select-none"
       >
-        <div className="flex items-center gap-4">
-          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
-            <Receipt className="w-6 h-6 text-primary" />
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
+            <Receipt className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
           </div>
-          <div className="text-left">
-            <h2 className="text-xl font-semibold tracking-tight">Contas Mensais</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
+          <div className="text-left min-w-0">
+            <h2 className="text-lg sm:text-xl font-semibold tracking-tight">Contas Mensais</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate">
               {contas.length} contas | Falta: <Valor amount={totalFalta} className="text-destructive font-medium" />
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           {isPending && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-secondary">
             {isOpen ? (
@@ -143,105 +150,113 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
       </button>
 
       {isOpen && (
-        <CardContent className="p-5 pt-0 animate-in">
-          <div className="overflow-x-auto rounded-xl border border-border/50 bg-secondary/20">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent border-border/50">
-                  <TableHead className="w-14">
-                    <Checkbox
-                      checked={allChecked}
-                      onCheckedChange={(checked) => handleToggleAll(checked as boolean)}
-                      className="data-[state=checked]:bg-success data-[state=checked]:border-success"
-                      aria-label="Selecionar todas as contas"
-                    />
-                  </TableHead>
-                  <TableHead>Nome da Conta</TableHead>
-                  <TableHead className="w-36">Valor (R$)</TableHead>
-                  <TableHead className="w-20 text-center">Dia</TableHead>
-                  <TableHead>Chave PIX</TableHead>
-                  <TableHead className="w-24"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {contas.map((conta) => (
-                  <TableRow key={conta.id} className={`border-border/50 ${conta.pago ? "opacity-50 bg-success/5" : ""}`}>
-                    <TableCell>
+        <CardContent className="p-4 sm:p-5 pt-0 animate-in">
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <Checkbox
+              checked={allChecked}
+              onCheckedChange={(checked) => handleToggleAll(checked as boolean)}
+              className="data-[state=checked]:bg-success data-[state=checked]:border-success"
+              aria-label="Selecionar todas as contas"
+            />
+            <span className="text-xs text-muted-foreground">Marcar todas como pagas</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {contas.map((conta) => {
+              const status = getStatus(conta)
+              const statusConfig = STATUS_CONFIG[status]
+
+              return (
+                <div
+                  key={conta.id}
+                  className={`group relative flex flex-col gap-3 rounded-2xl border border-border/50 bg-secondary/30 p-4 transition-all hover:border-border/80 ${
+                    conta.pago ? "opacity-60" : ""
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <Checkbox
                         checked={conta.pago}
-                        onCheckedChange={(checked) => 
-                          handleUpdateConta(conta.id, "pago", checked as boolean)
-                        }
-                        className="data-[state=checked]:bg-success data-[state=checked]:border-success"
+                        onCheckedChange={(checked) => handleUpdateConta(conta.id, "pago", checked as boolean)}
+                        className="shrink-0 data-[state=checked]:bg-success data-[state=checked]:border-success"
                       />
-                    </TableCell>
-                    <TableCell>
                       <Input
                         value={conta.nome}
                         onChange={(e) => handleUpdateConta(conta.id, "nome", e.target.value)}
-                        className={`bg-transparent border-0 px-0 h-9 focus-visible:ring-0 focus-visible:ring-offset-0 ${conta.pago ? "line-through text-muted-foreground" : ""}`}
+                        className={`h-8 min-w-0 border-0 bg-transparent px-0 font-medium focus-visible:ring-0 focus-visible:ring-offset-0 ${
+                          conta.pago ? "line-through text-muted-foreground" : ""
+                        }`}
                       />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={hideValues ? "••••••" : getValorDisplay(conta)}
-                        onChange={(e) => !hideValues && handleValorChange(conta.id, e.target.value)}
-                        onBlur={(e) => !hideValues && handleValorBlur(conta.id, e.target.value)}
-                        placeholder="0,00"
-                        readOnly={hideValues}
-                        className="bg-transparent border-0 px-0 h-9 focus-visible:ring-0 focus-visible:ring-offset-0 font-mono font-medium"
-                      />
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap ${statusConfig.className}`}
+                    >
+                      {statusConfig.label}
+                    </span>
+                  </div>
+
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={hideValues ? "••••••" : getValorDisplay(conta)}
+                    onChange={(e) => !hideValues && handleValorChange(conta.id, e.target.value)}
+                    onBlur={(e) => !hideValues && handleValorBlur(conta.id, e.target.value)}
+                    placeholder="0,00"
+                    readOnly={hideValues}
+                    className="h-9 border-0 bg-transparent px-0 font-mono text-xl font-semibold focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+
+                  <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      <span>Dia</span>
                       <Input
                         type="number"
                         min={1}
                         max={31}
                         value={conta.dia_pagamento}
-                        onChange={(e) => handleUpdateConta(conta.id, "dia_pagamento", parseInt(e.target.value) || 1)}
-                        className="bg-transparent border-0 px-0 h-9 focus-visible:ring-0 focus-visible:ring-offset-0 text-center w-14"
+                        onChange={(e) =>
+                          handleUpdateConta(conta.id, "dia_pagamento", parseInt(e.target.value) || 1)
+                        }
+                        className="h-7 w-10 border-0 bg-transparent px-0 text-center text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={conta.chave_pix}
-                          onChange={(e) => handleUpdateConta(conta.id, "chave_pix", e.target.value)}
-                          placeholder="Opcional"
-                          className="bg-transparent border-0 px-0 h-9 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm font-mono"
-                        />
-                        {conta.chave_pix && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 shrink-0"
-                            onClick={() => handleCopyPix(conta.chave_pix, conta.id)}
-                          >
-                            {copiedId === conta.id ? (
-                              <Check className="w-4 h-4 text-success" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDeleteConta(conta.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </div>
+
+                    <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+                      <Input
+                        value={conta.chave_pix}
+                        onChange={(e) => handleUpdateConta(conta.id, "chave_pix", e.target.value)}
+                        placeholder="PIX"
+                        className="h-7 min-w-0 border-0 bg-transparent px-0 text-right text-xs font-mono focus-visible:ring-0 focus-visible:ring-offset-0"
+                      />
+                      {conta.chave_pix && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          onClick={() => handleCopyPix(conta.chave_pix, conta.id)}
+                        >
+                          {copiedId === conta.id ? (
+                            <Check className="w-3.5 h-3.5 text-success" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleDeleteConta(conta.id)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           <Button
@@ -254,18 +269,21 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
             Adicionar Conta
           </Button>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-            <div className="p-5 rounded-2xl bg-secondary/50 border border-border/50">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-6">
+            <div className="p-4 sm:p-5 rounded-2xl bg-secondary/50 border border-border/50">
               <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Total Geral</p>
-              <Valor amount={totalGeral} className="block text-2xl font-bold font-mono mt-2" />
+              <Valor amount={totalGeral} className="block text-xl sm:text-2xl font-bold font-mono mt-2" />
             </div>
-            <div className="p-5 rounded-2xl bg-success/10 border border-success/20">
+            <div className="p-4 sm:p-5 rounded-2xl bg-success/10 border border-success/20">
               <p className="text-xs text-success/80 uppercase tracking-widest font-medium">Ja Foi Pago</p>
-              <Valor amount={totalPago} className="block text-2xl font-bold font-mono mt-2 text-success" />
+              <Valor amount={totalPago} className="block text-xl sm:text-2xl font-bold font-mono mt-2 text-success" />
             </div>
-            <div className="p-5 rounded-2xl bg-destructive/10 border border-destructive/20">
+            <div className="p-4 sm:p-5 rounded-2xl bg-destructive/10 border border-destructive/20">
               <p className="text-xs text-destructive/80 uppercase tracking-widest font-medium">Falta Pagar</p>
-              <Valor amount={totalFalta} className="block text-2xl font-bold font-mono mt-2 text-destructive" />
+              <Valor
+                amount={totalFalta}
+                className="block text-xl sm:text-2xl font-bold font-mono mt-2 text-destructive"
+              />
             </div>
           </div>
         </CardContent>
