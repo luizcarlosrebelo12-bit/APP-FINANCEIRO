@@ -164,7 +164,6 @@ export async function getDividas() {
   return data
 }
 
-// AJUSTADO: Agora recebe o nome da dívida pelo front-end
 export async function createDivida(payload?: { nome: string }) {
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -203,11 +202,9 @@ export async function deleteDivida(id: string) {
   revalidatePath("/")
 }
 
-// AJUSTADO: Agora recebe um objeto com todos os dados da parcela calculados no front
 export async function createParcelaCarro(payload: { divida_id: string, numero?: number, valor?: number, status?: string }) {
   const supabase = await createClient()
   
-  // Mantive a lógica de segurança: se o front não mandar o número, o banco acha o próximo sozinho
   let nextNumero = payload.numero;
   if (!nextNumero) {
     const { data: existingParcelas } = await supabase
@@ -227,7 +224,7 @@ export async function createParcelaCarro(payload: { divida_id: string, numero?: 
     .insert({ 
       divida_id: payload.divida_id,
       numero: nextNumero, 
-      data_pagamento: new Date().toISOString().split("T")[0], // Data de hoje como padrão
+      data_pagamento: new Date().toISOString().split("T")[0],
       valor: payload.valor || 0, 
       status: payload.status || "pendente" 
     })
@@ -303,6 +300,8 @@ export async function fecharMesAtual() {
     .filter((c) => c.pago)
     .reduce((acc, c) => acc + Number(c.valor), 0)
 
+  // total_parcelas_pago continua sendo calculado e salvo, só para registro histórico
+  // da dívida do carro — mas NÃO entra mais no saldo do mês.
   const todasParcelas = (dividas || []).flatMap((d) => d.parcelas_carro || [])
   const totalParcelasPago = todasParcelas
     .filter((p: any) => {
@@ -312,7 +311,9 @@ export async function fecharMesAtual() {
     })
     .reduce((acc: number, p: any) => acc + Number(p.valor), 0)
 
-  const totalPago = totalContasPago + totalParcelasPago
+  // Apenas as contas mensais entram no saldo do mês.
+  // A dívida do carro é só controle à parte, não afeta o saldo.
+  const totalPago = totalContasPago
   const saldo = totalSalarios - totalPago
 
   const { data, error } = await supabase
@@ -332,10 +333,30 @@ export async function fecharMesAtual() {
 
   if (error) throw error
 
-  // Reseta as contas mensais para o próximo mês (reaproveitando a action que já existia)
   await updateAllContasPago(false)
 
   revalidatePath("/")
   revalidatePath("/historico")
   return data
+}
+export async function deleteHistoricoMensal(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("historico_mensal")
+    .delete()
+    .eq("id", id)
+
+  if (error) throw error
+  revalidatePath("/historico")
+}
+
+export async function updateHistoricoMensal(id: string, updates: { mes?: number; ano?: number }) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("historico_mensal")
+    .update(updates)
+    .eq("id", id)
+
+  if (error) throw error
+  revalidatePath("/historico")
 }
