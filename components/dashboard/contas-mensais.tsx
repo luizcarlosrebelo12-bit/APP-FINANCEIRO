@@ -161,7 +161,7 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
             <span className="text-xs text-muted-foreground">Marcar todas como pagas</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
             {contas.map((conta) => {
               const status = getStatus(conta)
               const statusConfig = STATUS_CONFIG[status]
@@ -169,12 +169,12 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
               return (
                 <div
                   key={conta.id}
-                  className={`group relative flex flex-col gap-3 rounded-2xl border border-border/50 bg-secondary/30 p-4 transition-all hover:border-border/80 ${
+                  className={`group relative flex flex-col gap-2 rounded-2xl border border-border/50 bg-secondary/30 p-3 transition-all hover:border-border/80 ${
                     conta.pago ? "opacity-60" : ""
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       <Checkbox
                         checked={conta.pago}
                         onCheckedChange={(checked) => handleUpdateConta(conta.id, "pago", checked as boolean)}
@@ -188,12 +188,13 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                         }`}
                       />
                     </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap ${statusConfig.className}`}
-                    >
-                      {statusConfig.label}
-                    </span>
                   </div>
+
+                  <span
+                    className={`self-start shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap ${statusConfig.className}`}
+                  >
+                    {statusConfig.label}
+                  </span>
 
                   <Input
                     type="text"
@@ -203,10 +204,10 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                     onBlur={(e) => !hideValues && handleValorBlur(conta.id, e.target.value)}
                     placeholder="0,00"
                     readOnly={hideValues}
-                    className="h-9 border-0 bg-transparent px-0 font-mono text-xl font-semibold focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="h-9 border-0 bg-transparent px-0 font-mono text-lg font-semibold focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
 
-                  <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+                  <div className="flex flex-col gap-1.5 border-t border-border/50 pt-2">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                       <CalendarDays className="h-3.5 w-3.5" />
                       <span>Dia</span>
@@ -222,12 +223,12 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                       />
                     </div>
 
-                    <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+                    <div className="flex items-center justify-between gap-1">
                       <Input
                         value={conta.chave_pix}
                         onChange={(e) => handleUpdateConta(conta.id, "chave_pix", e.target.value)}
                         placeholder="PIX"
-                        className="h-7 min-w-0 border-0 bg-transparent px-0 text-right text-xs font-mono focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="h-7 min-w-0 flex-1 border-0 bg-transparent px-0 text-xs font-mono focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                       {conta.chave_pix && (
                         <Button
@@ -243,16 +244,15 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                           )}
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handleDeleteConta(conta.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
                     </div>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDeleteConta(conta.id)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
                   </div>
                 </div>
               )
