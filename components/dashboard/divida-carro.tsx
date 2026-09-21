@@ -14,9 +14,46 @@ import { updateParcelaCarro, deleteParcelaCarro, deleteDivida, createDivida, cre
 interface Parcela { id: string; divida_id: string; numero: number; valor: number; data_pagamento: string | null; status: "pendente" | "ok"; }
 interface Divida { id: string; nome: string; parcelas_carro: Parcela[]; }
 
+// ---------- Helpers de data digitada (dd/mm/aaaa) ----------
+const isoToBR = (iso: string | null) => {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return y && m && d ? `${d}/${m}/${y}` : "";
+};
+
+// Deixa só números e coloca as barras sozinho: 22102026 -> 22/10/2026
+const maskBR = (raw: string) => {
+  const d = raw.replace(/\D/g, "").slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`;
+  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
+};
+
+// Aceita dd/mm, dd/mm/aa e dd/mm/aaaa.
+// Retorna: string ISO (válida) | null (campo vazio) | undefined (inválida)
+const brToISO = (masked: string): string | null | undefined => {
+  const d = masked.replace(/\D/g, "");
+  if (d === "") return null;
+
+  const dia = Number(d.slice(0, 2));
+  const mes = Number(d.slice(2, 4));
+  let ano: number;
+
+  if (d.length === 4) ano = new Date().getFullYear();
+  else if (d.length === 6) ano = 2000 + Number(d.slice(4, 6));
+  else if (d.length === 8) ano = Number(d.slice(4, 8));
+  else return undefined;
+
+  const dt = new Date(ano, mes - 1, dia);
+  if (dt.getFullYear() !== ano || dt.getMonth() !== mes - 1 || dt.getDate() !== dia) return undefined;
+
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+};
+
 function DividaCard({ divida, setDividas }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const [, startTransition] = useTransition();
+  const [dateInputs, setDateInputs] = useState<Record<string, string>>({});
 
   // Ordenação: pagas primeiro (por data), depois pendentes (por data).
   // Parcela sem data vai para o fim do seu grupo. Empate desempata pelo número.
@@ -45,6 +82,22 @@ function DividaCard({ divida, setDividas }: any) {
       parcelas_carro: d.parcelas_carro.map((p: any) => p.id === parcelaId ? { ...p, [field]: value } : p)
     } : d));
     startTransition(async () => { await updateParcelaCarro(parcelaId, { [field]: value }); });
+  };
+
+  // 1.1 Salvar a data digitada quando sair do campo (aí a parcela vai pro lugar certo)
+  const handleDateBlur = (p: Parcela) => {
+    const typed = dateInputs[p.id];
+    if (typed === undefined) return;
+
+    const iso = brToISO(typed);
+    setDateInputs((prev) => {
+      const updated = { ...prev };
+      delete updated[p.id];
+      return updated;
+    });
+
+    if (iso === undefined) return; // data inválida: volta para a anterior
+    if (iso !== (p.data_pagamento || null)) handleUpdateParcela(p.id, "data_pagamento", iso);
   };
 
   // 2. Excluir a dívida PAI inteira
@@ -183,10 +236,16 @@ function DividaCard({ divida, setDividas }: any) {
 
                 <div className="flex items-center justify-between gap-1 border-t border-border/50 pt-2">
                   <Input
-                    type="date"
-                    value={p.data_pagamento || ""}
-                    onChange={(e) => handleUpdateParcela(p.id, "data_pagamento", e.target.value)}
-                    className="h-7 min-w-0 flex-1 border-0 bg-transparent px-0 text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="dd/mm/aaaa"
+                    value={dateInputs[p.id] ?? isoToBR(p.data_pagamento)}
+                    onChange={(e) => setDateInputs((prev) => ({ ...prev, [p.id]: maskBR(e.target.value) }))}
+                    onBlur={() => handleDateBlur(p)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                    }}
+                    className="h-7 min-w-0 flex-1 border-0 bg-transparent px-0 text-xs md:text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                   <Button
                     variant="ghost"
