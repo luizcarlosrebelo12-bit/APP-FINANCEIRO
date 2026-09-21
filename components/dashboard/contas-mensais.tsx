@@ -17,6 +17,7 @@ import {
   Receipt,
   Loader2,
   CalendarDays,
+  Target,
 } from "lucide-react"
 import {
   createContaMensal,
@@ -29,6 +30,7 @@ interface Conta {
   id: string
   nome: string
   valor: number
+  valor_indicado: number | null
   dia_pagamento: number
   chave_pix: string
   pago: boolean
@@ -53,6 +55,7 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
   const [isPending, startTransition] = useTransition()
   const { hideValues } = usePrivacy()
 
+  // ---------- Valor ----------
   const [valorInputs, setValorInputs] = useState<Record<string, string>>({})
 
   const getValorDisplay = (conta: Conta) => {
@@ -74,6 +77,29 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
     })
   }
 
+  // ---------- Valor indicado ----------
+  const [indicadoInputs, setIndicadoInputs] = useState<Record<string, string>>({})
+
+  const getIndicadoDisplay = (conta: Conta) => {
+    if (indicadoInputs[conta.id] !== undefined) return indicadoInputs[conta.id]
+    return Number(conta.valor_indicado) ? String(conta.valor_indicado).replace(".", ",") : ""
+  }
+
+  const handleIndicadoChange = (id: string, raw: string) => {
+    setIndicadoInputs((prev) => ({ ...prev, [id]: raw }))
+  }
+
+  const handleIndicadoBlur = (id: string, raw: string) => {
+    const num = parseFloat(raw.replace(",", "."))
+    handleUpdateConta(id, "valor_indicado", isNaN(num) ? null : num)
+    setIndicadoInputs((prev) => {
+      const updated = { ...prev }
+      delete updated[id]
+      return updated
+    })
+  }
+
+  // ---------- Ações ----------
   const handleCopyPix = async (pix: string, id: string) => {
     await navigator.clipboard.writeText(pix)
     setCopiedId(id)
@@ -87,7 +113,11 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
     })
   }
 
-  const handleUpdateConta = (id: string, field: keyof Conta, value: string | number | boolean) => {
+  const handleUpdateConta = (
+    id: string,
+    field: keyof Conta,
+    value: string | number | boolean | null
+  ) => {
     setContas(contas.map((c) => (c.id === id ? { ...c, [field]: value } : c)))
     startTransition(async () => {
       await updateContaMensal(id, { [field]: value })
@@ -196,16 +226,36 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                     {statusConfig.label}
                   </span>
 
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={hideValues ? "••••••" : getValorDisplay(conta)}
-                    onChange={(e) => !hideValues && handleValorChange(conta.id, e.target.value)}
-                    onBlur={(e) => !hideValues && handleValorBlur(conta.id, e.target.value)}
-                    placeholder="0,00"
-                    readOnly={hideValues}
-                    className="h-9 border-0 bg-transparent px-0 font-mono text-lg font-semibold focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
+                  {/* Valor real + valor indicado (apagadinho) */}
+                  <div className="flex items-center justify-between gap-2">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={hideValues ? "••••••" : getValorDisplay(conta)}
+                      onChange={(e) => !hideValues && handleValorChange(conta.id, e.target.value)}
+                      onBlur={(e) => !hideValues && handleValorBlur(conta.id, e.target.value)}
+                      placeholder="0,00"
+                      readOnly={hideValues}
+                      className="h-9 min-w-0 flex-1 border-0 bg-transparent px-0 font-mono text-lg font-semibold focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+
+                    <div
+                      title="Valor indicado"
+                      className="flex shrink-0 items-center gap-0.5 text-muted-foreground/40 transition-colors focus-within:text-muted-foreground hover:text-muted-foreground/70"
+                    >
+                      <Target className="h-3 w-3" />
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={hideValues ? "•••" : getIndicadoDisplay(conta)}
+                        onChange={(e) => !hideValues && handleIndicadoChange(conta.id, e.target.value)}
+                        onBlur={(e) => !hideValues && handleIndicadoBlur(conta.id, e.target.value)}
+                        placeholder="indicado"
+                        readOnly={hideValues}
+                        className="h-7 w-14 border-0 bg-transparent px-0 text-right font-mono text-xs italic text-inherit placeholder:text-muted-foreground/30 focus-visible:ring-0 focus-visible:ring-offset-0"
+                      />
+                    </div>
+                  </div>
 
                   <div className="flex flex-col gap-1.5 border-t border-border/50 pt-2">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
