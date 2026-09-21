@@ -18,7 +18,19 @@ function DividaCard({ divida, setDividas }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const [, startTransition] = useTransition();
 
-  const parcelas = [...(divida.parcelas_carro || [])].sort((a, b) => a.numero - b.numero);
+  // Ordenação: pagas primeiro (por data), depois pendentes (por data).
+  // Parcela sem data vai para o fim do seu grupo. Empate desempata pelo número.
+  const parcelas: Parcela[] = [...(divida.parcelas_carro || [])].sort((a: Parcela, b: Parcela) => {
+    const grupoA = a.status === "ok" ? 0 : 1;
+    const grupoB = b.status === "ok" ? 0 : 1;
+    if (grupoA !== grupoB) return grupoA - grupoB;
+
+    const dataA = a.data_pagamento || "9999-12-31";
+    const dataB = b.data_pagamento || "9999-12-31";
+    if (dataA !== dataB) return dataA.localeCompare(dataB);
+
+    return a.numero - b.numero;
+  });
 
   // Cálculos de Resumo
   const totalDivida = parcelas.reduce((acc, p) => acc + Number(p.valor || 0), 0);
@@ -45,8 +57,8 @@ function DividaCard({ divida, setDividas }: any) {
   };
 
   // 3. Excluir uma Parcela individual
-  const handleDeleteParcela = (parcelaId: string, numeroParcela: number) => {
-    if (window.confirm(`Excluir a parcela #${numeroParcela}?`)) {
+  const handleDeleteParcela = (parcelaId: string, posicaoParcela: number) => {
+    if (window.confirm(`Excluir a parcela #${posicaoParcela}?`)) {
       setDividas((prev: any) => prev.map((d: any) => d.id === divida.id ? {
         ...d,
         parcelas_carro: d.parcelas_carro.filter((p: any) => p.id !== parcelaId)
@@ -138,14 +150,15 @@ function DividaCard({ divida, setDividas }: any) {
       {isOpen && (
         <CardContent className="p-4 sm:p-5 pt-0 animate-in">
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-            {parcelas.map((p: Parcela) => (
+            {parcelas.map((p: Parcela, index: number) => (
               <div
                 key={p.id}
                 className={`flex flex-col gap-2 rounded-2xl border border-border/50 bg-secondary/30 p-3 transition-all hover:border-border/80 ${p.status === "ok" ? "opacity-60" : ""}`}
               >
                 <div className="flex items-center justify-between gap-2">
+                  {/* Número pela posição na lista (acompanha a ordenação por data) */}
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-bold">
-                    {p.numero}
+                    {index + 1}
                   </span>
                   <Select value={p.status} onValueChange={(val) => handleUpdateParcela(p.id, "status", val)}>
                     <SelectTrigger
@@ -179,7 +192,7 @@ function DividaCard({ divida, setDividas }: any) {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDeleteParcela(p.id, p.numero)}
+                    onClick={() => handleDeleteParcela(p.id, index + 1)}
                     title="Excluir parcela"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
