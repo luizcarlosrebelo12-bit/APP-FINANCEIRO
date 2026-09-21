@@ -243,7 +243,7 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                       title="Valor indicado"
                       className="flex shrink-0 items-center gap-0.5 text-muted-foreground/40 transition-colors focus-within:text-muted-foreground hover:text-muted-foreground/70"
                     >
-                      <Target className="h-3 w-3" />
+                      <Target className="h-2.5 w-2.5" />
                       <Input
                         type="text"
                         inputMode="decimal"
@@ -252,7 +252,7 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                         onBlur={(e) => !hideValues && handleIndicadoBlur(conta.id, e.target.value)}
                         placeholder="indicado"
                         readOnly={hideValues}
-                        className="h-7 w-14 border-0 bg-transparent px-0 text-right font-mono text-xs italic text-inherit placeholder:text-muted-foreground/30 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="h-6 w-14 border-0 bg-transparent px-0 text-right font-mono text-[10px] italic text-inherit placeholder:text-muted-foreground/30 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                   </div>
