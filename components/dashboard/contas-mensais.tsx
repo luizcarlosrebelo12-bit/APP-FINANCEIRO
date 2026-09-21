@@ -252,7 +252,7 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                         onBlur={(e) => !hideValues && handleIndicadoBlur(conta.id, e.target.value)}
                         placeholder="indicado"
                         readOnly={hideValues}
-                        className="h-6 w-14 border-0 bg-transparent px-0 text-right font-mono text-[10px] italic text-inherit placeholder:text-muted-foreground/30 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="h-6 w-14 border-0 bg-transparent px-0 text-right font-mono text-[10px] md:text-[10px] italic text-inherit placeholder:text-muted-foreground/30 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                   </div>
