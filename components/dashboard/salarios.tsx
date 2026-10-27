@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Valor } from "@/components/ui/valor"
 import { usePrivacy } from "@/lib/privacy-context"
+import { confirmDelete } from "@/lib/confirm-delete"
+import { SortableList, SortableItem } from "@/components/ui/sortable-list"
 import {
   Plus,
   Trash2,
@@ -20,6 +22,7 @@ import {
   createPessoa,
   updatePessoa,
   deletePessoa,
+  reordenarPessoas,
   createEntradaSalario,
   updateEntradaSalario,
   deleteEntradaSalario,
@@ -42,6 +45,9 @@ interface SalariosProps {
   initialData: Pessoa[]
 }
 
+// Aceita só números, vírgula e ponto
+const onlyNumeric = (raw: string) => raw.replace(/[^0-9.,]/g, "")
+
 export function Salarios({ initialData }: SalariosProps) {
   const [pessoas, setPessoas] = useState<Pessoa[]>(initialData)
   const [isOpen, setIsOpen] = useState(false)
@@ -56,7 +62,7 @@ export function Salarios({ initialData }: SalariosProps) {
   }
 
   const handleValorChange = (id: string, raw: string) => {
-    setValorInputs((prev) => ({ ...prev, [id]: raw }))
+    setValorInputs((prev) => ({ ...prev, [id]: onlyNumeric(raw) }))
   }
 
   const handleValorBlur = (pessoaId: string, entradaId: string, raw: string) => {
@@ -84,9 +90,22 @@ export function Salarios({ initialData }: SalariosProps) {
   }
 
   const handleDeletePessoa = (id: string) => {
+    const pessoa = pessoas.find((p) => p.id === id)
+    const qtd = pessoa?.entradas_salario.length ?? 0
+    const extra = qtd > 0 ? ` e as ${qtd} entrada(s) de salário dela` : ""
+    if (!confirmDelete(`Excluir "${pessoa?.nome || "sem nome"}"${extra}?`)) return
+
     setPessoas(pessoas.filter((p) => p.id !== id))
     startTransition(async () => {
       await deletePessoa(id)
+    })
+  }
+
+  const handleReorder = (ids: string[]) => {
+    const porId = new Map(pessoas.map((p) => [p.id, p]))
+    setPessoas(ids.map((id) => porId.get(id)).filter(Boolean) as Pessoa[])
+    startTransition(async () => {
+      await reordenarPessoas(ids)
     })
   }
 
@@ -120,6 +139,11 @@ export function Salarios({ initialData }: SalariosProps) {
   }
 
   const handleDeleteEntrada = (pessoaId: string, entradaId: string) => {
+    const pessoa = pessoas.find((p) => p.id === pessoaId)
+    const entrada = pessoa?.entradas_salario.find((e) => e.id === entradaId)
+    const valorTxt = entrada && Number(entrada.valor) ? ` de R$ ${String(entrada.valor).replace(".", ",")}` : ""
+    if (!confirmDelete(`Excluir esta entrada de salário${valorTxt} de "${pessoa?.nome || "sem nome"}"?`)) return
+
     setPessoas(
       pessoas.map((p) =>
         p.id === pessoaId
@@ -167,92 +191,99 @@ export function Salarios({ initialData }: SalariosProps) {
 
       {isOpen && (
         <CardContent className="p-4 sm:p-5 pt-0 animate-in">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {pessoas.map((pessoa) => (
-              <div key={pessoa.id} className="p-4 sm:p-5 rounded-2xl bg-secondary/30 border border-border/50">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="flex items-center justify-center w-10 h-10 shrink-0 rounded-full bg-accent/10 border border-accent/20">
-                    <UserCircle className="w-5 h-5 text-accent" />
-                  </div>
-                  <Input
-                    value={pessoa.nome}
-                    onChange={(e) => handleUpdatePessoa(pessoa.id, e.target.value)}
-                    className="bg-transparent border-0 px-0 h-9 focus-visible:ring-0 focus-visible:ring-offset-0 text-lg font-semibold flex-1 min-w-0"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDeletePessoa(pessoa.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  {pessoa.entradas_salario.map((entrada) => (
-                    <div
-                      key={entrada.id}
-                      className="flex items-center gap-2 p-3 rounded-xl bg-background/60 border border-border/30"
-                    >
-                      <span className="text-xs text-muted-foreground font-medium shrink-0">R$</span>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={hideValues ? "••••••" : getValorDisplay(entrada)}
-                        onChange={(e) => !hideValues && handleValorChange(entrada.id, e.target.value)}
-                        onBlur={(e) => !hideValues && handleValorBlur(pessoa.id, entrada.id, e.target.value)}
-                        placeholder="0,00"
-                        readOnly={hideValues}
-                        className="bg-transparent border-0 px-0 h-8 min-w-0 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 font-mono font-medium"
-                      />
-                      <div className="flex items-center gap-1 shrink-0 rounded-full bg-secondary px-2.5 py-1 text-[11px] text-muted-foreground">
-                        <CalendarDays className="h-3 w-3" />
+          <SortableList ids={pessoas.map((p) => p.id)} onReorder={handleReorder}>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {pessoas.map((pessoa) => (
+                <SortableItem key={pessoa.id} id={pessoa.id} className="min-w-0">
+                  {(handle) => (
+                    <div className="h-full p-4 sm:p-5 rounded-2xl bg-secondary/30 border border-border/50">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="flex items-center justify-center w-10 h-10 shrink-0 rounded-full bg-accent/10 border border-accent/20">
+                          <UserCircle className="w-5 h-5 text-accent" />
+                        </div>
                         <Input
-                          type="number"
-                          min={1}
-                          max={31}
-                          value={entrada.dia}
-                          onChange={(e) =>
-                            handleUpdateEntrada(pessoa.id, entrada.id, "dia", parseInt(e.target.value) || 1)
-                          }
-                          className="bg-transparent border-0 px-0 h-4 focus-visible:ring-0 focus-visible:ring-offset-0 w-6 text-center text-[11px]"
+                          value={pessoa.nome}
+                          onChange={(e) => handleUpdatePessoa(pessoa.id, e.target.value)}
+                          className="bg-transparent border-0 px-0 h-9 focus-visible:ring-0 focus-visible:ring-offset-0 text-lg font-semibold flex-1 min-w-0"
                         />
+                        {handle}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeletePessoa(pessoa.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
+
+                      <div className="space-y-2">
+                        {pessoa.entradas_salario.map((entrada) => (
+                          <div
+                            key={entrada.id}
+                            className="flex items-center gap-2 p-3 rounded-xl bg-background/60 border border-border/30"
+                          >
+                            <span className="text-xs text-muted-foreground font-medium shrink-0">R$</span>
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              value={hideValues ? "••••••" : getValorDisplay(entrada)}
+                              onChange={(e) => !hideValues && handleValorChange(entrada.id, e.target.value)}
+                              onBlur={(e) => !hideValues && handleValorBlur(pessoa.id, entrada.id, e.target.value)}
+                              placeholder="0,00"
+                              readOnly={hideValues}
+                              className="bg-transparent border-0 px-0 h-8 min-w-0 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 font-mono font-medium"
+                            />
+                            <div className="flex items-center gap-1 shrink-0 rounded-full bg-secondary px-2.5 py-1 text-[11px] text-muted-foreground">
+                              <CalendarDays className="h-3 w-3" />
+                              <Input
+                                type="number"
+                                min={1}
+                                max={31}
+                                value={entrada.dia}
+                                onChange={(e) =>
+                                  handleUpdateEntrada(pessoa.id, entrada.id, "dia", parseInt(e.target.value) || 1)
+                                }
+                                className="bg-transparent border-0 px-0 h-4 focus-visible:ring-0 focus-visible:ring-offset-0 w-6 text-center text-[11px]"
+                              />
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteEntrada(pessoa.id, entrada.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDeleteEntrada(pessoa.id, entrada.id)}
+                        size="sm"
+                        className="mt-3 w-full text-sm text-muted-foreground hover:text-foreground"
+                        onClick={() => handleAddEntrada(pessoa.id)}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Plus className="w-4 h-4 mr-1.5" />
+                        Adicionar Entrada
                       </Button>
+
+                      <div className="mt-4 pt-4 border-t border-border/50">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-muted-foreground">Subtotal</span>
+                          <Valor
+                            amount={calcularTotalPessoa(pessoa.entradas_salario)}
+                            className="text-xl font-bold font-mono text-success"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-3 w-full text-sm text-muted-foreground hover:text-foreground"
-                  onClick={() => handleAddEntrada(pessoa.id)}
-                >
-                  <Plus className="w-4 h-4 mr-1.5" />
-                  Adicionar Entrada
-                </Button>
-
-                <div className="mt-4 pt-4 border-t border-border/50">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-muted-foreground">Subtotal</span>
-                    <Valor
-                      amount={calcularTotalPessoa(pessoa.entradas_salario)}
-                      className="text-xl font-bold font-mono text-success"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                  )}
+                </SortableItem>
+              ))}
+            </div>
+          </SortableList>
 
           <Button
             variant="outline"
