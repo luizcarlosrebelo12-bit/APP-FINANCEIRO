@@ -3,18 +3,8 @@
 import { useState, useTransition } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Valor } from "@/components/ui/valor"
-import { Button } from "@/components/ui/button"
 import { deleteHistoricoMensal, updateHistoricoMensal } from "@/app/actions"
-import {
-  CalendarDays,
-  TrendingUp,
-  TrendingDown,
-  Wallet,
-  Trash2,
-  Pencil,
-  Check,
-  X,
-} from "lucide-react"
+import { CalendarDays, Trash2, Pencil, Check, X } from "lucide-react"
 
 const NOMES_MES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -36,6 +26,13 @@ export function HistoricoCard({ item }: HistoricoCardProps) {
   const [isPending, startTransition] = useTransition()
   const [editando, setEditando] = useState(false)
   const [novoAno, setNovoAno] = useState(item.ano)
+
+  const salario = Number(item.total_salarios) || 0
+  const saldo = Number(item.saldo) || 0
+  const taxa = salario > 0 ? (saldo / salario) * 100 : 0
+  const positivo = saldo >= 0
+  const larguraBarra = Math.max(0, Math.min(100, taxa))
+  const taxaTexto = `${taxa.toFixed(1).replace(".", ",")}%`
 
   const handleDelete = () => {
     const confirmado = window.confirm(
@@ -61,52 +58,64 @@ export function HistoricoCard({ item }: HistoricoCardProps) {
   }
 
   return (
-    <Card className="overflow-hidden border-border/40 shadow-lg shadow-black/5">
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 shrink-0">
-              <CalendarDays className="w-5 h-5 text-primary" />
+    <Card className="overflow-hidden border-border/40 shadow-sm">
+      <CardContent className="p-3 sm:p-4">
+        {/* Linha 1: mês, % poupado e ações */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10">
+              <CalendarDays className="h-4 w-4 text-primary" />
             </div>
 
             {editando ? (
               <div className="flex items-center gap-1.5">
-                <span className="text-lg font-semibold tracking-tight whitespace-nowrap">
+                <span className="whitespace-nowrap text-sm font-semibold">
                   {NOMES_MES[item.mes - 1]} de
                 </span>
                 <input
                   type="number"
                   value={novoAno}
                   onChange={(e) => setNovoAno(Number(e.target.value))}
-                  className="w-20 h-8 px-2 rounded-md bg-secondary border border-border/60 text-sm font-mono"
+                  className="h-7 w-20 rounded-md border border-border/60 bg-secondary px-2 font-mono text-sm"
                   autoFocus
                 />
               </div>
             ) : (
-              <h2 className="text-lg font-semibold tracking-tight truncate">
+              <h2 className="truncate text-sm font-semibold tracking-tight sm:text-base">
                 {NOMES_MES[item.mes - 1]} de {item.ano}
               </h2>
             )}
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex shrink-0 items-center gap-1">
+            {!editando && (
+              <span
+                className={`mr-1 rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold ${
+                  positivo ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
+                }`}
+                title="Taxa de poupança"
+              >
+                {taxaTexto}
+              </span>
+            )}
+
             {editando ? (
               <>
                 <button
                   onClick={handleSalvarAno}
                   disabled={isPending}
-                  className="flex items-center justify-center w-8 h-8 rounded-full text-primary hover:bg-primary/10 transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
                   title="Salvar"
                 >
-                  <Check className="w-4 h-4" />
+                  <Check className="h-4 w-4" />
                 </button>
                 <button
                   onClick={handleCancelar}
                   disabled={isPending}
-                  className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:bg-secondary transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary"
                   title="Cancelar"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               </>
             ) : (
@@ -114,46 +123,56 @@ export function HistoricoCard({ item }: HistoricoCardProps) {
                 <button
                   onClick={() => setEditando(true)}
                   disabled={isPending}
-                  className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                   title="Editar ano"
                 >
-                  <Pencil className="w-3.5 h-3.5" />
+                  <Pencil className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={isPending}
-                  className="flex items-center justify-center w-8 h-8 rounded-full text-destructive/70 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-destructive/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
                   title="Excluir"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </>
             )}
           </div>
         </div>
 
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <TrendingUp className="w-3.5 h-3.5" /> Salário
-            </span>
-            <Valor amount={item.total_salarios} className="font-mono font-medium text-success" />
+        {/* Linha 2: três valores lado a lado */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Salário</p>
+            <Valor
+              amount={item.total_salarios}
+              className="block truncate font-mono text-xs font-medium text-success sm:text-sm"
+            />
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <TrendingDown className="w-3.5 h-3.5" /> Pago
-            </span>
-            <Valor amount={item.total_pago} className="font-mono font-medium text-destructive" />
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Pago</p>
+            <Valor
+              amount={item.total_pago}
+              className="block truncate font-mono text-xs font-medium text-destructive sm:text-sm"
+            />
+          </div>
+          <div className="min-w-0 text-right">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Saldo Poupado</p>
+            <Valor
+              amount={item.saldo}
+              className={`block truncate font-mono text-xs font-bold sm:text-sm ${
+                positivo ? "text-primary" : "text-destructive"
+              }`}
+            />
           </div>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-sm font-medium">
-            <Wallet className="w-4 h-4" /> Sobrou
-          </span>
-          <Valor
-            amount={item.saldo}
-            className={`text-xl font-bold font-mono ${item.saldo >= 0 ? "text-primary" : "text-destructive"}`}
+        {/* Barra fina: quanto do salário foi poupado */}
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+          <div
+            className={`h-full rounded-full transition-all ${positivo ? "bg-primary" : "bg-destructive"}`}
+            style={{ width: `${larguraBarra}%` }}
           />
         </div>
       </CardContent>

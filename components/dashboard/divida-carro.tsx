@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Landmark, CheckCircle2, Clock } from "lucide-react";
 import { Valor } from "@/components/ui/valor";
+import { usePrivacy } from "@/lib/privacy-context";
 
 // ATENÇÃO: Adicione a action 'createParcelaCarro' no seu arquivo de actions!
 import { updateParcelaCarro, deleteParcelaCarro, deleteDivida, createDivida, createParcelaCarro } from "@/app/actions";
@@ -50,10 +51,25 @@ const brToISO = (masked: string): string | null | undefined => {
   return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
 };
 
+// ---------- Helpers de valor (campo livre, sem máscara) ----------
+// Aceita só números, vírgula e ponto
+const onlyNumeric = (raw: string) => raw.replace(/[^0-9.,]/g, "");
+
+// Diminui a fonte conforme o tamanho para o valor sempre caber
+const valorSizeClass = (text: string) => {
+  const n = text.length;
+  if (n <= 7) return "text-lg md:text-lg";
+  if (n <= 9) return "text-base md:text-base";
+  if (n <= 11) return "text-sm md:text-sm";
+  return "text-xs md:text-xs";
+};
+
 function DividaCard({ divida, setDividas }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const [, startTransition] = useTransition();
   const [dateInputs, setDateInputs] = useState<Record<string, string>>({});
+  const [valorInputs, setValorInputs] = useState<Record<string, string>>({});
+  const { hideValues } = usePrivacy();
 
   // Ordenação: pagas primeiro (por data), depois pendentes (por data).
   // Parcela sem data vai para o fim do seu grupo. Empate desempata pelo número.
@@ -98,6 +114,30 @@ function DividaCard({ divida, setDividas }: any) {
 
     if (iso === undefined) return; // data inválida: volta para a anterior
     if (iso !== (p.data_pagamento || null)) handleUpdateParcela(p.id, "data_pagamento", iso);
+  };
+
+  // 1.2 Valor da parcela: digitação livre, salva ao sair do campo
+  const getValorDisplay = (p: Parcela) => {
+    if (valorInputs[p.id] !== undefined) return valorInputs[p.id];
+    return Number(p.valor) ? String(p.valor).replace(".", ",") : "";
+  };
+
+  const handleValorChange = (id: string, raw: string) => {
+    setValorInputs((prev) => ({ ...prev, [id]: onlyNumeric(raw) }));
+  };
+
+  const handleValorBlur = (p: Parcela) => {
+    const typed = valorInputs[p.id];
+    if (typed === undefined) return;
+
+    const num = parseFloat(typed.replace(",", ".")) || 0;
+    setValorInputs((prev) => {
+      const updated = { ...prev };
+      delete updated[p.id];
+      return updated;
+    });
+
+    if (num !== Number(p.valor)) handleUpdateParcela(p.id, "valor", num);
   };
 
   // 2. Excluir a dívida PAI inteira
@@ -203,62 +243,81 @@ function DividaCard({ divida, setDividas }: any) {
       {isOpen && (
         <CardContent className="p-4 sm:p-5 pt-0 animate-in">
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-            {parcelas.map((p: Parcela, index: number) => (
-              <div
-                key={p.id}
-                className={`flex flex-col gap-2 rounded-2xl border border-border/50 bg-secondary/30 p-3 transition-all hover:border-border/80 ${p.status === "ok" ? "opacity-60" : ""}`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  {/* Número pela posição na lista (acompanha a ordenação por data) */}
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-bold">
-                    {index + 1}
-                  </span>
-                  <Select value={p.status} onValueChange={(val) => handleUpdateParcela(p.id, "status", val)}>
-                    <SelectTrigger
-                      className={`h-7 w-auto gap-1 rounded-full border-0 px-2.5 text-[11px] font-medium ${
-                        p.status === "ok" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
-                      }`}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pendente">
-                        <Clock className="w-3.5 h-3.5 mr-1.5 inline" /> Pendente
-                      </SelectItem>
-                      <SelectItem value="ok">
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 inline" /> Pago
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            {parcelas.map((p: Parcela, index: number) => {
+              const valorText = hideValues ? "••••••" : getValorDisplay(p);
 
-                <Valor amount={p.valor} className="font-mono text-lg font-semibold" />
+              return (
+                <div
+                  key={p.id}
+                  className={`flex min-w-0 flex-col gap-2 rounded-2xl border border-border/50 bg-secondary/30 p-3 transition-all hover:border-border/80 ${p.status === "ok" ? "opacity-60" : ""}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Número pela posição na lista (acompanha a ordenação por data) */}
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-bold">
+                      {index + 1}
+                    </span>
+                    <Select value={p.status} onValueChange={(val) => handleUpdateParcela(p.id, "status", val)}>
+                      <SelectTrigger
+                        className={`h-7 w-auto gap-1 rounded-full border-0 px-2.5 text-[11px] font-medium ${
+                          p.status === "ok" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
+                        }`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pendente">
+                          <Clock className="w-3.5 h-3.5 mr-1.5 inline" /> Pendente
+                        </SelectItem>
+                        <SelectItem value="ok">
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 inline" /> Pago
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="flex items-center justify-between gap-1 border-t border-border/50 pt-2">
+                  {/* Valor livre: só aceita números, vírgula e ponto */}
                   <Input
                     type="text"
-                    inputMode="numeric"
-                    placeholder="dd/mm/aaaa"
-                    value={dateInputs[p.id] ?? isoToBR(p.data_pagamento)}
-                    onChange={(e) => setDateInputs((prev) => ({ ...prev, [p.id]: maskBR(e.target.value) }))}
-                    onBlur={() => handleDateBlur(p)}
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={valorText}
+                    readOnly={hideValues}
+                    onChange={(e) => !hideValues && handleValorChange(p.id, e.target.value)}
+                    onBlur={() => !hideValues && handleValorBlur(p)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") e.currentTarget.blur();
                     }}
-                    className="h-7 min-w-0 flex-1 border-0 bg-transparent px-0 text-xs md:text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className={`h-9 w-full min-w-0 border-0 bg-transparent px-0 font-mono font-semibold focus-visible:ring-0 focus-visible:ring-offset-0 ${valorSizeClass(
+                      valorText || "0,00"
+                    )}`}
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDeleteParcela(p.id, index + 1)}
-                    title="Excluir parcela"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+
+                  <div className="flex items-center justify-between gap-1 border-t border-border/50 pt-2">
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="dd/mm/aaaa"
+                      value={dateInputs[p.id] ?? isoToBR(p.data_pagamento)}
+                      onChange={(e) => setDateInputs((prev) => ({ ...prev, [p.id]: maskBR(e.target.value) }))}
+                      onBlur={() => handleDateBlur(p)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                      }}
+                      className="h-7 min-w-0 flex-1 border-0 bg-transparent px-0 text-xs md:text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleDeleteParcela(p.id, index + 1)}
+                      title="Excluir parcela"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <Button

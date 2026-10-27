@@ -48,6 +48,18 @@ const STATUS_CONFIG: Record<StatusKey, { label: string; className: string }> = {
   pendente: { label: "Pendente", className: "bg-warning/15 text-warning" },
 }
 
+// Deixa só números, vírgula e ponto
+const onlyNumeric = (raw: string) => raw.replace(/[^0-9.,]/g, "")
+
+// Diminui a fonte conforme a quantidade de caracteres, para o valor sempre caber
+const valorSizeClass = (text: string) => {
+  const n = text.length
+  if (n <= 7) return "text-lg md:text-lg"
+  if (n <= 9) return "text-base md:text-base"
+  if (n <= 11) return "text-sm md:text-sm"
+  return "text-xs md:text-xs"
+}
+
 export function ContasMensais({ initialData }: ContasMensaisProps) {
   const [contas, setContas] = useState<Conta[]>(initialData)
   const [isOpen, setIsOpen] = useState(false)
@@ -64,7 +76,7 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
   }
 
   const handleValorChange = (id: string, raw: string) => {
-    setValorInputs((prev) => ({ ...prev, [id]: raw }))
+    setValorInputs((prev) => ({ ...prev, [id]: onlyNumeric(raw) }))
   }
 
   const handleValorBlur = (id: string, raw: string) => {
@@ -86,7 +98,7 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
   }
 
   const handleIndicadoChange = (id: string, raw: string) => {
-    setIndicadoInputs((prev) => ({ ...prev, [id]: raw }))
+    setIndicadoInputs((prev) => ({ ...prev, [id]: onlyNumeric(raw) }))
   }
 
   const handleIndicadoBlur = (id: string, raw: string) => {
@@ -195,11 +207,12 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
             {contas.map((conta) => {
               const status = getStatus(conta)
               const statusConfig = STATUS_CONFIG[status]
+              const valorText = hideValues ? "••••••" : getValorDisplay(conta)
 
               return (
                 <div
                   key={conta.id}
-                  className={`group relative flex flex-col gap-2 rounded-2xl border border-border/50 bg-secondary/30 p-3 transition-all hover:border-border/80 ${
+                  className={`group relative flex min-w-0 flex-col gap-2 rounded-2xl border border-border/50 bg-secondary/30 p-3 transition-all hover:border-border/80 ${
                     conta.pago ? "opacity-60" : ""
                   }`}
                 >
@@ -226,35 +239,36 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                     {statusConfig.label}
                   </span>
 
-                  {/* Valor real + valor indicado (apagadinho) */}
-                  <div className="flex items-center justify-between gap-2">
+                  {/* Valor real: linha inteira, fonte diminui conforme o tamanho */}
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={valorText}
+                    onChange={(e) => !hideValues && handleValorChange(conta.id, e.target.value)}
+                    onBlur={(e) => !hideValues && handleValorBlur(conta.id, e.target.value)}
+                    placeholder="0,00"
+                    readOnly={hideValues}
+                    className={`h-9 w-full min-w-0 border-0 bg-transparent px-0 font-mono font-semibold focus-visible:ring-0 focus-visible:ring-offset-0 ${valorSizeClass(
+                      valorText || "0,00"
+                    )}`}
+                  />
+
+                  {/* Valor indicado (apagadinho) em linha própria */}
+                  <div
+                    title="Valor indicado"
+                    className="flex items-center gap-1 text-muted-foreground/50 transition-colors focus-within:text-muted-foreground hover:text-muted-foreground/80"
+                  >
+                    <Target className="h-3 w-3 shrink-0" />
                     <Input
                       type="text"
                       inputMode="decimal"
-                      value={hideValues ? "••••••" : getValorDisplay(conta)}
-                      onChange={(e) => !hideValues && handleValorChange(conta.id, e.target.value)}
-                      onBlur={(e) => !hideValues && handleValorBlur(conta.id, e.target.value)}
-                      placeholder="0,00"
+                      value={hideValues ? "•••" : getIndicadoDisplay(conta)}
+                      onChange={(e) => !hideValues && handleIndicadoChange(conta.id, e.target.value)}
+                      onBlur={(e) => !hideValues && handleIndicadoBlur(conta.id, e.target.value)}
+                      placeholder="indicado"
                       readOnly={hideValues}
-                      className="h-9 min-w-0 flex-1 border-0 bg-transparent px-0 font-mono text-lg font-semibold focus-visible:ring-0 focus-visible:ring-offset-0"
+                      className="h-6 w-full min-w-0 border-0 bg-transparent px-0 font-mono text-[11px] md:text-[11px] italic text-inherit placeholder:text-muted-foreground/30 focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
-
-                    <div
-                      title="Valor indicado"
-                      className="flex shrink-0 items-center gap-0.5 text-muted-foreground/40 transition-colors focus-within:text-muted-foreground hover:text-muted-foreground/70"
-                    >
-                      <Target className="h-2.5 w-2.5" />
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={hideValues ? "•••" : getIndicadoDisplay(conta)}
-                        onChange={(e) => !hideValues && handleIndicadoChange(conta.id, e.target.value)}
-                        onBlur={(e) => !hideValues && handleIndicadoBlur(conta.id, e.target.value)}
-                        placeholder="indicado"
-                        readOnly={hideValues}
-                        className="h-6 w-14 border-0 bg-transparent px-0 text-right font-mono text-[10px] md:text-[10px] italic text-inherit placeholder:text-muted-foreground/30 focus-visible:ring-0 focus-visible:ring-offset-0"
-                      />
-                    </div>
                   </div>
 
                   <div className="flex flex-col gap-1.5 border-t border-border/50 pt-2">
