@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Valor } from "@/components/ui/valor"
 import { usePrivacy } from "@/lib/privacy-context"
+import { confirmDelete } from "@/lib/confirm-delete"
+import { SortableList, SortableItem } from "@/components/ui/sortable-list"
 import {
   Copy,
   Check,
@@ -24,6 +26,7 @@ import {
   updateContaMensal,
   deleteContaMensal,
   updateAllContasPago,
+  reordenarContas,
 } from "@/app/actions"
 
 interface Conta {
@@ -137,9 +140,20 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
   }
 
   const handleDeleteConta = (id: string) => {
+    const conta = contas.find((c) => c.id === id)
+    if (!confirmDelete(`Excluir a conta "${conta?.nome || "sem nome"}"?`)) return
     setContas(contas.filter((c) => c.id !== id))
     startTransition(async () => {
       await deleteContaMensal(id)
+    })
+  }
+
+  const handleReorder = (ids: string[]) => {
+    const porId = new Map(contas.map((c) => [c.id, c]))
+    const novaLista = ids.map((id) => porId.get(id)).filter(Boolean) as Conta[]
+    setContas(novaLista)
+    startTransition(async () => {
+      await reordenarContas(ids)
     })
   }
 
@@ -203,6 +217,7 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
             <span className="text-xs text-muted-foreground">Marcar todas como pagas</span>
           </div>
 
+          <SortableList ids={contas.map((c) => c.id)} onReorder={handleReorder}>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
             {contas.map((conta) => {
               const status = getStatus(conta)
@@ -210,9 +225,10 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
               const valorText = hideValues ? "••••••" : getValorDisplay(conta)
 
               return (
+                <SortableItem key={conta.id} id={conta.id} className="min-w-0">
+                {(handle) => (
                 <div
-                  key={conta.id}
-                  className={`group relative flex min-w-0 flex-col gap-2 rounded-2xl border border-border/50 bg-secondary/30 p-3 transition-all hover:border-border/80 ${
+                  className={`group relative flex h-full min-w-0 flex-col gap-2 rounded-2xl border border-border/50 bg-secondary/30 p-3 transition-all hover:border-border/80 ${
                     conta.pago ? "opacity-60" : ""
                   }`}
                 >
@@ -233,11 +249,14 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                     </div>
                   </div>
 
-                  <span
-                    className={`self-start shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap ${statusConfig.className}`}
-                  >
-                    {statusConfig.label}
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap ${statusConfig.className}`}
+                    >
+                      {statusConfig.label}
+                    </span>
+                    {handle}
+                  </div>
 
                   {/* Valor real: linha inteira, fonte diminui conforme o tamanho */}
                   <Input
@@ -319,9 +338,12 @@ export function ContasMensais({ initialData }: ContasMensaisProps) {
                     </div>
                   </div>
                 </div>
+                )}
+                </SortableItem>
               )
             })}
           </div>
+          </SortableList>
 
           <Button
             variant="outline"

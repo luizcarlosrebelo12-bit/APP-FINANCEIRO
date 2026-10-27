@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Valor } from "@/components/ui/valor"
 import { deleteHistoricoMensal, updateHistoricoMensal } from "@/app/actions"
+import { confirmDelete } from "@/lib/confirm-delete"
 import { CalendarDays, Trash2, Pencil, Check, X } from "lucide-react"
 
 const NOMES_MES = [
@@ -35,8 +36,8 @@ export function HistoricoCard({ item }: HistoricoCardProps) {
   const taxaTexto = `${taxa.toFixed(1).replace(".", ",")}%`
 
   const handleDelete = () => {
-    const confirmado = window.confirm(
-      `Excluir o registro de ${NOMES_MES[item.mes - 1]} de ${item.ano}? Essa ação não pode ser desfeita.`
+    const confirmado = confirmDelete(
+      `Excluir o registro de ${NOMES_MES[item.mes - 1]} de ${item.ano}?`
     )
     if (!confirmado) return
 

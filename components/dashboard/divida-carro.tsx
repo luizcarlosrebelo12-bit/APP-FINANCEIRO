@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Landmark, CheckCircle2, Clock } from "lucide-react";
 import { Valor } from "@/components/ui/valor";
 import { usePrivacy } from "@/lib/privacy-context";
+import { confirmDelete } from "@/lib/confirm-delete";
+import { SortableList, SortableItem } from "@/components/ui/sortable-list";
 
 // ATENÇÃO: Adicione a action 'createParcelaCarro' no seu arquivo de actions!
-import { updateParcelaCarro, deleteParcelaCarro, deleteDivida, createDivida, createParcelaCarro } from "@/app/actions";
+import { updateParcelaCarro, deleteParcelaCarro, deleteDivida, createDivida, createParcelaCarro, reordenarDividas } from "@/app/actions";
 
 interface Parcela { id: string; divida_id: string; numero: number; valor: number; data_pagamento: string | null; status: "pendente" | "ok"; }
 interface Divida { id: string; nome: string; parcelas_carro: Parcela[]; }
@@ -64,7 +66,7 @@ const valorSizeClass = (text: string) => {
   return "text-xs md:text-xs";
 };
 
-function DividaCard({ divida, setDividas }: any) {
+function DividaCard({ divida, setDividas, dragHandle }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const [, startTransition] = useTransition();
   const [dateInputs, setDateInputs] = useState<Record<string, string>>({});
@@ -143,7 +145,7 @@ function DividaCard({ divida, setDividas }: any) {
   // 2. Excluir a dívida PAI inteira
   const handleDeleteDivida = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm(`Tem certeza que deseja excluir a dívida "${divida.nome}" inteira?`)) {
+    if (confirmDelete(`Tem certeza que deseja excluir a dívida "${divida.nome}" inteira, com todas as parcelas?`)) {
       setDividas((prev: any) => prev.filter((d: any) => d.id !== divida.id));
       startTransition(async () => { await deleteDivida(divida.id); });
     }
@@ -151,7 +153,7 @@ function DividaCard({ divida, setDividas }: any) {
 
   // 3. Excluir uma Parcela individual
   const handleDeleteParcela = (parcelaId: string, posicaoParcela: number) => {
-    if (window.confirm(`Excluir a parcela #${posicaoParcela}?`)) {
+    if (confirmDelete(`Excluir a parcela #${posicaoParcela}?`)) {
       setDividas((prev: any) => prev.map((d: any) => d.id === divida.id ? {
         ...d,
         parcelas_carro: d.parcelas_carro.filter((p: any) => p.id !== parcelaId)
@@ -193,13 +195,20 @@ function DividaCard({ divida, setDividas }: any) {
       parcelas_carro: [...d.parcelas_carro, novaParcelaObj]
     } : d));
 
+    // Troca o id provisório pelo id real criado no banco
     startTransition(async () => {
-      await createParcelaCarro({
+      const criada = await createParcelaCarro({
         divida_id: divida.id,
         numero: proximoNumero,
         valor: valorNumerico,
         status: "pendente"
       });
+      if (criada) {
+        setDividas((prev: any) => prev.map((d: any) => d.id === divida.id ? {
+          ...d,
+          parcelas_carro: d.parcelas_carro.map((p: any) => p.id === idProvisorio ? criada : p)
+        } : d));
+      }
     });
   };
 
@@ -219,9 +228,12 @@ function DividaCard({ divida, setDividas }: any) {
             </div>
           </div>
 
-          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10 z-10" onClick={handleDeleteDivida} title="Excluir Dívida Pai">
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          <div className="flex shrink-0 items-center gap-1">
+            {dragHandle}
+            <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10 z-10" onClick={handleDeleteDivida} title="Excluir Dívida Pai">
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
@@ -338,6 +350,12 @@ export function DividaCarro({ initialData }: { initialData: Divida[] }) {
   const [dividas, setDividas] = useState<Divida[]>(initialData || []);
   const [, startTransition] = useTransition();
 
+  const handleReorder = (ids: string[]) => {
+    const porId = new Map(dividas.map((d) => [d.id, d]));
+    setDividas(ids.map((id) => porId.get(id)).filter(Boolean) as Divida[]);
+    startTransition(async () => { await reordenarDividas(ids); });
+  };
+
   const handleNovaDivida = () => {
     const nomeNovaDivida = window.prompt("Qual o nome da nova dívida?");
     if (!nomeNovaDivida || nomeNovaDivida.trim() === "") return;
@@ -347,14 +365,24 @@ export function DividaCarro({ initialData }: { initialData: Divida[] }) {
 
     setDividas(prev => [...prev, novaDividaObj]);
 
+    // Troca o id provisório pelo id real criado no banco (necessário para editar/reordenar)
     startTransition(async () => {
-      await createDivida({ nome: nomeNovaDivida });
+      const criada = await createDivida({ nome: nomeNovaDivida });
+      if (criada) {
+        setDividas(prev => prev.map(d => d.id === tempId ? { ...criada, parcelas_carro: [] } : d));
+      }
     });
   };
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      {dividas.map((d) => <DividaCard key={d.id} divida={d} setDividas={setDividas} />)}
+      <SortableList ids={dividas.map((d) => d.id)} onReorder={handleReorder} strategy="list">
+        {dividas.map((d) => (
+          <SortableItem key={d.id} id={d.id}>
+            {(handle) => <DividaCard divida={d} setDividas={setDividas} dragHandle={handle} />}
+          </SortableItem>
+        ))}
+      </SortableList>
       <Button className="w-full h-11" onClick={handleNovaDivida}><Plus className="mr-2 w-4 h-4"/> Nova Dívida</Button>
     </div>
   );

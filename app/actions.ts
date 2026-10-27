@@ -3,6 +3,18 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
+// Salva a ordem (posição 0, 1, 2...) de uma lista de ids em uma tabela.
+// Função interna (não exportada) usada pelas actions de reordenar abaixo.
+async function salvarOrdem(tabela: "contas_mensais" | "pessoas" | "dividas", ids: string[]) {
+  const supabase = await createClient()
+  const resultados = await Promise.all(
+    ids.map((id, index) => supabase.from(tabela).update({ ordem: index }).eq("id", id))
+  )
+  const falha = resultados.find((r) => r.error)
+  if (falha?.error) throw falha.error
+  revalidatePath("/")
+}
+
 // ==================== CONTAS MENSAIS ====================
 
 export async function getContasMensais() {
@@ -10,6 +22,7 @@ export async function getContasMensais() {
   const { data, error } = await supabase
     .from("contas_mensais")
     .select("*")
+    .order("ordem", { ascending: true })
     .order("dia_pagamento", { ascending: true })
   
   if (error) throw error
@@ -20,7 +33,7 @@ export async function createContaMensal() {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("contas_mensais")
-    .insert({ nome: "Nova Conta", valor: 0, dia_pagamento: 1, chave_pix: "", pago: false })
+    .insert({ nome: "Nova Conta", valor: 0, dia_pagamento: 1, chave_pix: "", pago: false, ordem: 9999 })
     .select()
     .single()
   
@@ -62,6 +75,10 @@ export async function updateAllContasPago(pago: boolean) {
   revalidatePath("/")
 }
 
+export async function reordenarContas(ids: string[]) {
+  await salvarOrdem("contas_mensais", ids)
+}
+
 // ==================== PESSOAS E SALÁRIOS ====================
 
 export async function getPessoas() {
@@ -82,7 +99,7 @@ export async function createPessoa() {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("pessoas")
-    .insert({ nome: "Nova Pessoa", ordem: 99 })
+    .insert({ nome: "Nova Pessoa", ordem: 9999 })
     .select()
     .single()
   
@@ -111,6 +128,10 @@ export async function deletePessoa(id: string) {
   
   if (error) throw error
   revalidatePath("/")
+}
+
+export async function reordenarPessoas(ids: string[]) {
+  await salvarOrdem("pessoas", ids)
 }
 
 export async function createEntradaSalario(pessoaId: string) {
@@ -170,7 +191,7 @@ export async function createDivida(payload?: { nome: string }) {
     .from("dividas")
     .insert({ 
       nome: payload?.nome || "Nova Dívida", 
-      ordem: 99 
+      ordem: 9999 
     })
     .select()
     .single()
@@ -200,6 +221,10 @@ export async function deleteDivida(id: string) {
   
   if (error) throw error
   revalidatePath("/")
+}
+
+export async function reordenarDividas(ids: string[]) {
+  await salvarOrdem("dividas", ids)
 }
 
 export async function createParcelaCarro(payload: { divida_id: string, numero?: number, valor?: number, status?: string }) {
